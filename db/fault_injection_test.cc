@@ -373,12 +373,11 @@ class FaultInjectionTest {
   std::string dbname_;
   Cache* tiny_cache_;
   Options options_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 
   FaultInjectionTest()
       : env_(new FaultInjectionTestEnv),
-        tiny_cache_(NewLRUCache(100)),
-        db_(nullptr) {
+        tiny_cache_(NewLRUCache(100)) {
     dbname_ = test::TmpDir() + "/fault_test";
     DestroyDB(dbname_, Options());  // Destroy any db from earlier run
     options_.reuse_logs = true;
@@ -456,15 +455,12 @@ class FaultInjectionTest {
   }
 
   Status OpenDB() {
-    delete db_;
-    db_ = nullptr;
     env_->ResetState();
-    return DB::Open(options_, dbname_, &db_);
+    return DB::Open(options_, dbname_, db_);
   }
 
   void CloseDB() {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
   }
 
   void DeleteAllData() {

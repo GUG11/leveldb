@@ -195,12 +195,12 @@ TEST(MemEnvTest, DBTest) {
   Options options;
   options.create_if_missing = true;
   options.env = env_;
-  DB* db;
+  std::unique_ptr<DB> db;
 
   const Slice keys[] = {Slice("aaa"), Slice("bbb"), Slice("ccc")};
   const Slice vals[] = {Slice("foo"), Slice("bar"), Slice("baz")};
 
-  ASSERT_OK(DB::Open(options, "/dir/db", &db));
+  ASSERT_OK(DB::Open(options, "/dir/db", db));
   for (size_t i = 0; i < 3; ++i) {
     ASSERT_OK(db->Put(WriteOptions(), keys[i], vals[i]));
   }
@@ -222,7 +222,7 @@ TEST(MemEnvTest, DBTest) {
   ASSERT_TRUE(!iterator->Valid());
   delete iterator;
 
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db.get());
   ASSERT_OK(dbi->TEST_CompactMemTable());
 
   for (size_t i = 0; i < 3; ++i) {
@@ -230,8 +230,6 @@ TEST(MemEnvTest, DBTest) {
     ASSERT_OK(db->Get(ReadOptions(), keys[i], &res));
     ASSERT_TRUE(res == vals[i]);
   }
-
-  delete db;
 }
 
 }  // namespace leveldb

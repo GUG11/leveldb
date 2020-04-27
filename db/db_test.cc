@@ -242,7 +242,7 @@ class DBTest {
  public:
   std::string dbname_;
   SpecialEnv* env_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 
   Options last_options_;
 
@@ -251,12 +251,11 @@ class DBTest {
     filter_policy_ = NewBloomFilterPolicy(10);
     dbname_ = test::TmpDir() + "/db_test";
     DestroyDB(dbname_, Options());
-    db_ = nullptr;
     Reopen();
   }
 
   ~DBTest() {
-    delete db_;
+    db_.reset();
     DestroyDB(dbname_, Options());
     delete env_;
     delete filter_policy_;
@@ -295,7 +294,7 @@ class DBTest {
   }
 
   DBImpl* dbfull() {
-    return reinterpret_cast<DBImpl*>(db_);
+    return reinterpret_cast<DBImpl*>(db_.get());
   }
 
   void Reopen(Options* options = nullptr) {
@@ -303,20 +302,16 @@ class DBTest {
   }
 
   void Close() {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
   }
 
   void DestroyAndReopen(Options* options = nullptr) {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
     DestroyDB(dbname_, Options());
     ASSERT_OK(TryReopen(options));
   }
 
   Status TryReopen(Options* options) {
-    delete db_;
-    db_ = nullptr;
     Options opts;
     if (options != nullptr) {
       opts = *options;
@@ -326,7 +321,7 @@ class DBTest {
     }
     last_options_ = opts;
 
-    return DB::Open(opts, dbname_, &db_);
+    return DB::Open(opts, dbname_, db_);
   }
 
   Status Put(const std::string& k, const std::string& v) {
@@ -1926,7 +1921,7 @@ struct MTThread {
 static void MTThreadBody(void* arg) {
   MTThread* t = reinterpret_cast<MTThread*>(arg);
   int id = t->id;
-  DB* db = t->state->test->db_;
+  DB* db = t->state->test->db_.get();
   uintptr_t counter = 0;
   fprintf(stderr, "... starting thread %d\n", id);
   Random rnd(1000 + id);
@@ -2207,8 +2202,8 @@ TEST(DBTest, Randomized) {
       }
 
       if ((step % 100) == 0) {
-        ASSERT_TRUE(CompareIterators(step, &model, db_, nullptr, nullptr));
-        ASSERT_TRUE(CompareIterators(step, &model, db_, model_snap, db_snap));
+        ASSERT_TRUE(CompareIterators(step, &model, db_.get(), nullptr, nullptr));
+        ASSERT_TRUE(CompareIterators(step, &model, db_.get(), model_snap, db_snap));
         // Save a snapshot from each DB this time that we'll use next
         // time we compare things, to make sure the current state is
         // preserved with the snapshot
@@ -2216,7 +2211,7 @@ TEST(DBTest, Randomized) {
         if (db_snap != nullptr) db_->ReleaseSnapshot(db_snap);
 
         Reopen();
-        ASSERT_TRUE(CompareIterators(step, &model, db_, nullptr, nullptr));
+        ASSERT_TRUE(CompareIterators(step, &model, db_.get(), nullptr, nullptr));
 
         model_snap = model.GetSnapshot();
         db_snap = db_->GetSnapshot();

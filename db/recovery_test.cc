@@ -17,7 +17,7 @@ namespace leveldb {
 
 class RecoveryTest {
  public:
-  RecoveryTest() : env_(Env::Default()), db_(nullptr) {
+  RecoveryTest() : env_(Env::Default()) {
     dbname_ = test::TmpDir() + "/recovery_test";
     DestroyDB(dbname_, Options());
     Open();
@@ -28,7 +28,7 @@ class RecoveryTest {
     DestroyDB(dbname_, Options());
   }
 
-  DBImpl* dbfull() const { return reinterpret_cast<DBImpl*>(db_); }
+  DBImpl* dbfull() const { return reinterpret_cast<DBImpl*>(db_.get()); }
   Env* env() const { return env_; }
 
   bool CanAppend() {
@@ -43,8 +43,7 @@ class RecoveryTest {
   }
 
   void Close() {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
   }
 
   Status OpenWithStatus(Options* options = nullptr) {
@@ -59,7 +58,7 @@ class RecoveryTest {
     if (opts.env == nullptr) {
       opts.env = env_;
     }
-    return DB::Open(opts, dbname_, &db_);
+    return DB::Open(opts, dbname_, db_);
   }
 
   void Open(Options* options = nullptr) {
@@ -161,7 +160,7 @@ class RecoveryTest {
  private:
   std::string dbname_;
   Env* env_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 };
 
 TEST(RecoveryTest, ManifestReused) {

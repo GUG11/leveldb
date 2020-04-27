@@ -18,10 +18,10 @@ TEST(Issue200, Test) {
   std::string dbpath = test::TmpDir() + "/leveldb_issue200_test";
   DestroyDB(dbpath, Options());
 
-  DB *db;
+  std::unique_ptr<DB> db;
   Options options;
   options.create_if_missing = true;
-  ASSERT_OK(DB::Open(options, dbpath, &db));
+  ASSERT_OK(DB::Open(options, dbpath, db));
 
   WriteOptions write_options;
   ASSERT_OK(db->Put(write_options, "1", "b"));
@@ -48,7 +48,6 @@ TEST(Issue200, Test) {
   ASSERT_EQ(iter->key().ToString(), "5");
 
   delete iter;
-  delete db;
   DestroyDB(dbpath, options);
 }
 

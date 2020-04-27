@@ -351,15 +351,12 @@ class DBConstructor: public Constructor {
   explicit DBConstructor(const Comparator* cmp)
       : Constructor(cmp),
         comparator_(cmp) {
-    db_ = nullptr;
     NewDB();
   }
   ~DBConstructor() {
-    delete db_;
   }
   virtual Status FinishImpl(const Options& options, const KVMap& data) {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
     NewDB();
     for (KVMap::const_iterator it = data.begin();
          it != data.end();
@@ -374,7 +371,7 @@ class DBConstructor: public Constructor {
     return db_->NewIterator(ReadOptions());
   }
 
-  virtual DB* db() const { return db_; }
+  virtual DB* db() const { return db_.get(); }
 
  private:
   void NewDB() {
@@ -388,12 +385,12 @@ class DBConstructor: public Constructor {
     options.create_if_missing = true;
     options.error_if_exists = true;
     options.write_buffer_size = 10000;  // Something small to force merging
-    status = DB::Open(options, name, &db_);
+    status = DB::Open(options, name, db_);
     ASSERT_TRUE(status.ok()) << status.ToString();
   }
 
   const Comparator* comparator_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 };
 
 enum TestType {

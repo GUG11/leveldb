@@ -15,7 +15,7 @@ class AutoCompactTest {
   std::string dbname_;
   Cache* tiny_cache_;
   Options options_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 
   AutoCompactTest() {
     dbname_ = test::TmpDir() + "/autocompact_test";
@@ -24,11 +24,11 @@ class AutoCompactTest {
     DestroyDB(dbname_, options_);
     options_.create_if_missing = true;
     options_.compression = kNoCompression;
-    ASSERT_OK(DB::Open(options_, dbname_, &db_));
+    ASSERT_OK(DB::Open(options_, dbname_, db_));
   }
 
   ~AutoCompactTest() {
-    delete db_;
+    db_.reset();
     DestroyDB(dbname_, Options());
     delete tiny_cache_;
   }
@@ -57,7 +57,7 @@ static const int kCount = kTotalSize / kValueSize;
 // compacted (verified by checking the size of the key space).
 void AutoCompactTest::DoReads(int n) {
   std::string value(kValueSize, 'x');
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
 
   // Fill database
   for (int i = 0; i < kCount; i++) {

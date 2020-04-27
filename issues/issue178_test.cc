@@ -35,11 +35,11 @@ TEST(Issue178, Test) {
   // Open database.  Disable compression since it affects the creation
   // of layers and the code below is trying to test against a very
   // specific scenario.
-  leveldb::DB* db;
+  std::unique_ptr<leveldb::DB> db;
   leveldb::Options db_options;
   db_options.create_if_missing = true;
   db_options.compression = leveldb::kNoCompression;
-  ASSERT_OK(leveldb::DB::Open(db_options, dbpath, &db));
+  ASSERT_OK(leveldb::DB::Open(db_options, dbpath, db));
 
   // create first key range
   leveldb::WriteBatch batch;
@@ -81,7 +81,6 @@ TEST(Issue178, Test) {
   ASSERT_EQ(kNumKeys, num_keys) << "Bad number of keys";
 
   // close database
-  delete db;
   DestroyDB(dbpath, leveldb::Options());
 }
 

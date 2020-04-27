@@ -30,7 +30,7 @@ class CorruptionTest {
   std::string dbname_;
   Cache* tiny_cache_;
   Options options_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
 
   CorruptionTest() {
     tiny_cache_ = NewLRUCache(100);
@@ -39,22 +39,20 @@ class CorruptionTest {
     dbname_ = test::TmpDir() + "/corruption_test";
     DestroyDB(dbname_, options_);
 
-    db_ = nullptr;
     options_.create_if_missing = true;
     Reopen();
     options_.create_if_missing = false;
   }
 
   ~CorruptionTest() {
-     delete db_;
-     DestroyDB(dbname_, Options());
-     delete tiny_cache_;
+    db_.reset();
+    DestroyDB(dbname_, Options());
+    delete tiny_cache_;
   }
 
   Status TryReopen() {
-    delete db_;
-    db_ = nullptr;
-    return DB::Open(options_, dbname_, &db_);
+    db_.reset();
+    return DB::Open(options_, dbname_, db_);
   }
 
   void Reopen() {
@@ -62,8 +60,7 @@ class CorruptionTest {
   }
 
   void RepairDB() {
-    delete db_;
-    db_ = nullptr;
+    db_.reset();
     ASSERT_OK(::leveldb::RepairDB(dbname_, options_));
   }
 
@@ -235,7 +232,7 @@ TEST(CorruptionTest, NewFileErrorDuringWrite) {
 
 TEST(CorruptionTest, TableFile) {
   Build(100);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
   dbi->TEST_CompactRange(1, nullptr, nullptr);
@@ -249,7 +246,7 @@ TEST(CorruptionTest, TableFileRepair) {
   options_.paranoid_checks = true;
   Reopen();
   Build(100);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
   dbi->TEST_CompactRange(1, nullptr, nullptr);
@@ -262,7 +259,7 @@ TEST(CorruptionTest, TableFileRepair) {
 
 TEST(CorruptionTest, TableFileIndexData) {
   Build(10000);  // Enough to build multiple Tables
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
 
   Corrupt(kTableFile, -2000, 500);
@@ -300,7 +297,7 @@ TEST(CorruptionTest, SequenceNumberRecovery) {
 
 TEST(CorruptionTest, CorruptedDescriptor) {
   ASSERT_OK(db_->Put(WriteOptions(), "foo", "hello"));
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
 
@@ -317,7 +314,7 @@ TEST(CorruptionTest, CorruptedDescriptor) {
 
 TEST(CorruptionTest, CompactionInputError) {
   Build(10);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
   const int last = config::kMaxMemCompactLevel;
   ASSERT_EQ(1, Property("leveldb.num-files-at-level" + NumberToString(last)));
@@ -334,7 +331,7 @@ TEST(CorruptionTest, CompactionInputErrorParanoid) {
   options_.paranoid_checks = true;
   options_.write_buffer_size = 512 << 10;
   Reopen();
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
 
   // Make multiple inputs so we need to compact.
   for (int i = 0; i < 2; i++) {
@@ -353,7 +350,7 @@ TEST(CorruptionTest, CompactionInputErrorParanoid) {
 
 TEST(CorruptionTest, UnrelatedKeys) {
   Build(10);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_.get());
   dbi->TEST_CompactMemTable();
   Corrupt(kTableFile, 100, 1);
 

@@ -318,7 +318,7 @@ class Benchmark {
  private:
   Cache* cache_;
   const FilterPolicy* filter_policy_;
-  DB* db_;
+  std::unique_ptr<DB> db_;
   int num_;
   int value_size_;
   int entries_per_batch_;
@@ -406,7 +406,6 @@ class Benchmark {
     filter_policy_(FLAGS_bloom_bits >= 0
                    ? NewBloomFilterPolicy(FLAGS_bloom_bits)
                    : nullptr),
-    db_(nullptr),
     num_(FLAGS_num),
     value_size_(FLAGS_value_size),
     entries_per_batch_(1),
@@ -425,7 +424,6 @@ class Benchmark {
   }
 
   ~Benchmark() {
-    delete db_;
     delete cache_;
     delete filter_policy_;
   }
@@ -534,8 +532,7 @@ class Benchmark {
                   name.ToString().c_str());
           method = nullptr;
         } else {
-          delete db_;
-          db_ = nullptr;
+          db_.reset();
           DestroyDB(FLAGS_db, Options());
           Open();
         }
@@ -714,7 +711,7 @@ class Benchmark {
     options.max_open_files = FLAGS_open_files;
     options.filter_policy = filter_policy_;
     options.reuse_logs = FLAGS_reuse_logs;
-    Status s = DB::Open(options, FLAGS_db, &db_);
+    Status s = DB::Open(options, FLAGS_db, db_);
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
       exit(1);
@@ -723,7 +720,7 @@ class Benchmark {
 
   void OpenBench(ThreadState* thread) {
     for (int i = 0; i < num_; i++) {
-      delete db_;
+      db_.reset();
       Open();
       thread->stats.FinishedSingleOp();
     }
