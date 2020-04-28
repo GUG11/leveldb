@@ -54,11 +54,10 @@ class Repairer {
         owns_cache_(options_.block_cache != options.block_cache),
         next_file_number_(1) {
     // TableCache can be small since we expect each table to be opened once.
-    table_cache_ = new TableCache(dbname_, options_, 10);
+    table_cache_ = std::make_shared<TableCache>(dbname_, options_, 10);
   }
 
   ~Repairer() {
-    delete table_cache_;
     if (owns_info_log_) {
       delete options_.info_log;
     }
@@ -104,7 +103,7 @@ class Repairer {
   Options const options_;
   bool owns_info_log_;
   bool owns_cache_;
-  TableCache* table_cache_;
+  std::shared_ptr<TableCache> table_cache_;
   VersionEdit edit_;
 
   std::vector<std::string> manifests_;

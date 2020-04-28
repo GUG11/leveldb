@@ -130,7 +130,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       owns_info_log_(options_.info_log != raw_options.info_log),
       owns_cache_(options_.block_cache != raw_options.block_cache),
       dbname_(dbname),
-      table_cache_(new TableCache(dbname_, options_, TableCacheSize(options_))),
+      table_cache_(std::make_shared<TableCache>(dbname_, options_, TableCacheSize(options_))),
       db_lock_(nullptr),
       shutting_down_(nullptr),
       background_work_finished_signal_(&mutex_),
@@ -167,7 +167,6 @@ DBImpl::~DBImpl() {
   delete tmp_batch_;
   delete log_;
   delete logfile_;
-  delete table_cache_;
 
   if (owns_info_log_) {
     delete options_.info_log;
@@ -1539,6 +1538,7 @@ Status DB::Open(const Options& options, const std::string& dbname,
   return s;
 }
 
+// TODO (GUG11): wrap the DB as a singleton to enable C interface.
 Status DB::Open(const Options& options, const std::string& dbname,
                 DB** dbptr) {
   *dbptr = nullptr;

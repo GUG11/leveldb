@@ -228,7 +228,7 @@ Iterator* Version::NewConcatenatingIterator(const ReadOptions& options,
                                             int level) const {
   return NewTwoLevelIterator(
       new LevelFileNumIterator(vset_->icmp_, &files_[level]),
-      &GetFileIterator, vset_->table_cache_, options);
+      &GetFileIterator, vset_->table_cache_.get(), options);
 }
 
 void Version::AddIterators(const ReadOptions& options,
@@ -775,7 +775,7 @@ class VersionSet::Builder {
 
 VersionSet::VersionSet(const std::string& dbname,
                        const Options* options,
-                       TableCache* table_cache,
+                       std::shared_ptr<TableCache> table_cache,
                        const InternalKeyComparator* cmp)
     : env_(options->env),
       dbname_(dbname),
@@ -1283,7 +1283,7 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
         // Create concatenating iterator for the files from this level
         list[num++] = NewTwoLevelIterator(
             new Version::LevelFileNumIterator(icmp_, &c->inputs_[which]),
-            &GetFileIterator, table_cache_, options);
+            &GetFileIterator, table_cache_.get(), options);
       }
     }
   }

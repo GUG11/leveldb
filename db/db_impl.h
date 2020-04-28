@@ -129,7 +129,7 @@ class DBImpl : public DB {
   const std::string dbname_;
 
   // table_cache_ provides its own synchronization
-  TableCache* const table_cache_;
+  const std::shared_ptr<TableCache> table_cache_;
 
   // Lock over the persistent DB state.  Non-null iff successfully acquired.
   FileLock* db_lock_;
